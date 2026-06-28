@@ -10,7 +10,7 @@ from api.routes import router
 async def lifespan(app):
     # Startup
     load_all()
-    from pipeline.normalizer import nlp_linker
+    # from pipeline.normalizer import nlp_linker
     print("All systems ready.")
     yield
 
