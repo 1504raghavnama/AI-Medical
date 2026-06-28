@@ -59,6 +59,7 @@ function renderResults(data) {
                 Confidence: <strong>${(code.confidence * 100).toFixed(1)}%</strong> &nbsp;|&nbsp;
                 <span class="status-badge status-${code.status}">${code.status}</span>
             </div>
+            ${code.llm_reason ? `<div class="llm-reason">🤖 ${code.llm_reason}</div>` : ''}
             <div class="alternatives">
                 <div class="alternatives-title">Alternatives</div>
                 ${code.alternatives.map(a =>

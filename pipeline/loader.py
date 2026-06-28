@@ -2,16 +2,18 @@ import json
 import numpy as np
 import torch
 import torch.nn as nn
+from pathlib import Path
 from torchcrf import CRF
-from gensim.models import Word2Vec
-from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
 from config import (
     BILSTM_MODEL_PATH, WORD2VEC_MODEL_PATH,
     WORD2IDX_PATH, TAG2IDX_PATH, MODEL_INFO_PATH,
     ICD10_PATH, HCPCS_PATH
 )
 
-# ── BiLSTM-CRF Model Definition ──────────────────────────────────
+CACHE_DIR = Path("./cache")
+
+
 class BiLSTM_CRF(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden_dim, num_tags):
         super().__init__()
@@ -32,13 +34,13 @@ class BiLSTM_CRF(nn.Module):
         return self.crf.decode(emissions, mask=mask)
 
 
-# ── Global model state ────────────────────────────────────────────
 models = {}
 
 
 def load_all():
     global models
 
+    CACHE_DIR.mkdir(exist_ok=True)
     device = torch.device("cpu")
 
     # Load vocabularies
@@ -58,27 +60,54 @@ def load_all():
         hidden_dim=info["hidden_dim"],
         num_tags=len(tag2idx)
     ).to(device)
-    ner_model.load_state_dict(torch.load(BILSTM_MODEL_PATH, map_location=device))
+    ner_model.load_state_dict(torch.load(
+        BILSTM_MODEL_PATH, map_location=device))
     ner_model.eval()
 
-    # Load Word2Vec
-    w2v = Word2Vec.load(str(WORD2VEC_MODEL_PATH))
+    # Load PubMedBERT
+    print("Loading PubMedBERT...")
+    embedding_model = SentenceTransformer("pritamdeka/S-PubMedBert-MS-MARCO")
+    print("PubMedBERT loaded.")
 
-    # Load ICD-10 knowledge base
+    # Load knowledge bases
     with open(ICD10_PATH) as f:
         icd10_meta = json.load(f)
-
-    # Load HCPCS knowledge base
     with open(HCPCS_PATH) as f:
         hcpcs_meta = json.load(f)
 
-    # Pre-compute ICD-10 embeddings
-    print("Computing ICD-10 embeddings...")
-    icd10_embeddings = _compute_embeddings(icd10_meta, w2v)
+    # ICD-10 embeddings — load from cache or compute
+    icd10_cache = CACHE_DIR / "icd10_embeddings.npy"
+    if icd10_cache.exists():
+        print("Loading ICD-10 embeddings from cache...")
+        icd10_embeddings = np.load(str(icd10_cache))
+        print(f"Loaded {len(icd10_embeddings)} ICD-10 embeddings from cache.")
+    else:
+        print("Computing ICD-10 embeddings (one-time, takes ~1 hour on CPU)...")
+        icd10_descriptions = [item["description"] for item in icd10_meta]
+        icd10_embeddings = embedding_model.encode(
+            icd10_descriptions,
+            batch_size=256,
+            show_progress_bar=True
+        )
+        np.save(str(icd10_cache), icd10_embeddings)
+        print("ICD-10 embeddings saved to cache.")
 
-    # Pre-compute HCPCS embeddings
-    print("Computing HCPCS embeddings...")
-    hcpcs_embeddings = _compute_embeddings(hcpcs_meta, w2v)
+    # HCPCS embeddings — load from cache or compute
+    hcpcs_cache = CACHE_DIR / "hcpcs_embeddings.npy"
+    if hcpcs_cache.exists():
+        print("Loading HCPCS embeddings from cache...")
+        hcpcs_embeddings = np.load(str(hcpcs_cache))
+        print(f"Loaded {len(hcpcs_embeddings)} HCPCS embeddings from cache.")
+    else:
+        print("Computing HCPCS embeddings...")
+        hcpcs_descriptions = [item["description"] for item in hcpcs_meta]
+        hcpcs_embeddings = embedding_model.encode(
+            hcpcs_descriptions,
+            batch_size=256,
+            show_progress_bar=True
+        )
+        np.save(str(hcpcs_cache), hcpcs_embeddings)
+        print("HCPCS embeddings saved to cache.")
 
     models = {
         "device": device,
@@ -86,27 +115,15 @@ def load_all():
         "tag2idx": tag2idx,
         "idx2tag": idx2tag,
         "ner": ner_model,
-        "w2v": w2v,
+        "embedding_model": embedding_model,
         "icd10_meta": icd10_meta,
         "icd10_embeddings": icd10_embeddings,
         "hcpcs_meta": hcpcs_meta,
         "hcpcs_embeddings": hcpcs_embeddings,
     }
 
-    print(f"Models loaded — ICD-10: {len(icd10_meta)} codes, HCPCS: {len(hcpcs_meta)} codes")
+    print(f"All models loaded — ICD-10: {len(icd10_meta)} codes, HCPCS: {len(hcpcs_meta)} codes")
     return models
-
-
-def _compute_embeddings(meta, w2v):
-    embeddings = []
-    for item in meta:
-        words = item["description"].lower().split()
-        vecs = [w2v.wv[w] for w in words if w in w2v.wv]
-        if vecs:
-            embeddings.append(np.mean(vecs, axis=0))
-        else:
-            embeddings.append(np.zeros(w2v.vector_size))
-    return np.array(embeddings)
 
 
 def get_models():

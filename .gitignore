@@ -227,3 +227,5 @@ models/*.bin
 
 # Environment
 .env
+
+cache/

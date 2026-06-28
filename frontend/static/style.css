@@ -229,3 +229,13 @@ footer {
     font-size: 0.85rem;
     color: #888;
 }
+
+.llm-reason {
+    font-size: 0.85rem;
+    color: #555;
+    background: #f8f9fa;
+    border-left: 3px solid #2a78d6;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0 4px 4px 0;
+}

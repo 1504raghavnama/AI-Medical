@@ -18,6 +18,7 @@ class CodeSuggestion(BaseModel):
     description: str
     confidence: float
     status: str
+    llm_reason: str
     alternatives: List[AlternativeCode]
     validation_status: str
 

@@ -1,15 +1,23 @@
 import numpy as np
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
+# Load biomedical sentence transformer
+print("Loading PubMedBERT embeddings model...")
+embedding_model = SentenceTransformer("pritamdeka/S-PubMedBert-MS-MARCO")
+print("PubMedBERT loaded.")
 
-def get_embedding(text, w2v):
-    words = text.lower().split()
-    vecs = [w2v.wv[w] for w in words if w in w2v.wv]
-    return np.mean(vecs, axis=0) if vecs else np.zeros(w2v.vector_size)
+
+def get_embedding(text):
+    return embedding_model.encode([text])[0]
 
 
-def retrieve_codes(query, embeddings, meta, w2v, top_k=5):
-    query_vec = get_embedding(query, w2v).reshape(1, -1)
+def get_embeddings_batch(texts):
+    return embedding_model.encode(texts, batch_size=64, show_progress_bar=False)
+
+
+def retrieve_codes(query, embeddings, meta, top_k=5, w2v=None):
+    query_vec = get_embedding(query).reshape(1, -1)
     scores = cosine_similarity(query_vec, embeddings)[0]
     top_indices = np.argsort(scores)[::-1][:top_k]
     return [

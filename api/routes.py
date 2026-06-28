@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 from datetime import datetime
-from pipeline.nlp import extract_medical_phrases, detect_negation
+from pipeline.nlp import extract_medical_entities, detect_negation
 from pipeline.rag import retrieve_codes, rerank_candidates
+from pipeline.llm import llm_rerank
 from pipeline.rules import validate_codes
 from pipeline.loader import get_models
 from api.schemas import ClinicalNoteRequest, CodeSuggestionResponse, FeedbackRequest
@@ -26,44 +27,53 @@ def analyze(request: ClinicalNoteRequest):
     models = get_models()
     note = request.note
 
-    # Step 1 — Extract phrases
-    phrases = extract_medical_phrases(note)
+    # Step 1 — Extract medical entities using scispacy
+    entities = extract_medical_entities(note)
 
-    # Step 2 — Negation detection
+    # Step 2 — Negation and uncertainty detection
     affirmed, negated, uncertain = [], [], []
-    for phrase in phrases:
-        status = detect_negation(note, phrase)
+    for entity in entities:
+        status = detect_negation(note, entity)
         if status == "negated":
-            negated.append(phrase)
+            negated.append(entity)
         elif status == "uncertain":
-            uncertain.append(phrase)
+            uncertain.append(entity)
         else:
-            affirmed.append(phrase)
+            affirmed.append(entity)
 
-    # Step 3 — RAG retrieval + reranking
+    # Step 3 — RAG retrieval + reranking + LLM reasoning
     seen_codes = set()
     suggested_codes = []
 
     for query in affirmed + uncertain:
+        # Vector retrieval
         candidates = retrieve_codes(
             query,
             models["icd10_embeddings"],
             models["icd10_meta"],
-            models["w2v"]
+            top_k=10
         )
         reranked = rerank_candidates(candidates)
-        best = reranked[0]
 
-        if best["code"] in seen_codes:
+        # LLM reranking
+        best = llm_rerank(query, reranked, note)
+
+        if not best or best["code"] in seen_codes:
             continue
-        seen_codes.add(best["code"])
 
+        # If LLM says negated, skip
+        if best.get("llm_status") == "negated":
+            negated.append(query)
+            continue
+
+        seen_codes.add(best["code"])
         suggested_codes.append({
             "entity": query,
             "primary_code": best["code"],
             "description": best["description"],
             "confidence": best["combined_score"],
-            "status": "uncertain" if query in uncertain else "affirmed",
+            "status": best.get("llm_status", "uncertain" if query in uncertain else "affirmed"),
+            "llm_reason": best.get("llm_reason", ""),
             "alternatives": [
                 {
                     "code": c["code"],
@@ -71,6 +81,7 @@ def analyze(request: ClinicalNoteRequest):
                     "confidence": c["combined_score"]
                 }
                 for c in reranked[1:3]
+                if c["code"] != best["code"]
             ],
             "validation_status": "valid"
         })
