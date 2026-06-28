@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Medical Coding System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Medical Coding System</h1>
+            <p class="subtitle">ICD-10-CM code suggestion from clinical notes</p>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <label for="clinical-note">Clinical Note</label>
+                <textarea 
+                    id="clinical-note" 
+                    placeholder="Enter clinical note here..."
+                    rows="6"
+                >Patient has hypertension and chronic kidney disease. No evidence of pneumonia. History of myocardial infarction.</textarea>
+                <button id="analyze-btn" onclick="analyze()">Analyze & Suggest Codes</button>
+            </section>
+
+            <section id="results-section" class="results-section hidden">
+                <div id="status-bar" class="status-bar"></div>
+                <div id="codes-container"></div>
+            </section>
+
+            <section id="error-section" class="error-section hidden">
+                <p id="error-message"></p>
+            </section>
+        </main>
+
+        <footer>
+            <p>AI Medical Coding System — Internship Project — ICD-10-CM 2026</p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
