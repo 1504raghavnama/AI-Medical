@@ -9,6 +9,7 @@ from pipeline.loader import get_models
 from api.schemas import ClinicalNoteRequest, CodeSuggestionResponse, FeedbackRequest
 from governance.audit import log_request, log_feedback, get_code_weight, get_feedback_stats
 from pipeline.phi import deidentify
+from api.fhir_parser import parse_fhir_bundle, parse_hl7_message, create_sample_fhir_bundle, create_sample_hl7
 
 router = APIRouter()
 
@@ -140,3 +141,51 @@ def feedback(request: FeedbackRequest):
 @router.get("/feedback/stats")
 def feedback_stats():
     return get_feedback_stats()
+
+@router.post("/analyze/fhir")
+def analyze_fhir(fhir_bundle: dict):
+    """Accept FHIR Bundle JSON and extract clinical note for analysis."""
+    parsed = parse_fhir_bundle(fhir_bundle)
+    if not parsed["success"]:
+        return {"error": parsed["error"]}
+    if not parsed["clinical_note"]:
+        return {"error": "No clinical text found in FHIR bundle"}
+    # Run through existing pipeline
+    from api.schemas import ClinicalNoteRequest
+    request = ClinicalNoteRequest(note=parsed["clinical_note"])
+    result = analyze(request)
+    result_dict = dict(result) if hasattr(result, '__iter__') else result
+    return {
+        "fhir_parsed": parsed,
+        "analysis": result
+    }
+
+
+@router.post("/analyze/hl7")
+def analyze_hl7(payload: dict):
+    """Accept HL7 v2 message and extract clinical note for analysis."""
+    hl7_text = payload.get("message", "")
+    if not hl7_text:
+        return {"error": "No HL7 message provided"}
+    parsed = parse_hl7_message(hl7_text)
+    if not parsed["success"]:
+        return {"error": parsed["error"]}
+    from api.schemas import ClinicalNoteRequest
+    request = ClinicalNoteRequest(note=parsed["clinical_note"])
+    result = analyze(request)
+    return {
+        "hl7_parsed": parsed,
+        "analysis": result
+    }
+
+
+@router.get("/sample/fhir")
+def sample_fhir():
+    """Returns a sample FHIR Bundle for testing."""
+    return create_sample_fhir_bundle()
+
+
+@router.get("/sample/hl7")
+def sample_hl7():
+    """Returns a sample HL7 message for testing."""
+    return {"message": create_sample_hl7()}
