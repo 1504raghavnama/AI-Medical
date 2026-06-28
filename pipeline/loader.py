@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from pathlib import Path
 from torchcrf import CRF
+from pipeline.normalizer import nlp_linker
 from sentence_transformers import SentenceTransformer
 from config import (
     BILSTM_MODEL_PATH, WORD2VEC_MODEL_PATH,

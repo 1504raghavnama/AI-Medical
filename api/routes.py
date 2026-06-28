@@ -1,3 +1,4 @@
+from pipeline.normalizer import normalize_entities
 from fastapi import APIRouter
 from datetime import datetime
 from pipeline.nlp import extract_medical_entities, detect_negation
@@ -32,9 +33,13 @@ def analyze(request: ClinicalNoteRequest):
     phi_result = deidentify(note)
     clean_note = phi_result["anonymized_text"]
     phi_detected = phi_result["phi_detected"]
-
+    
     # Step 1 — Extract medical entities using scispacy
     entities = extract_medical_entities(clean_note)
+
+    # Step 1b — UMLS Normalization
+    normalized = normalize_entities(entities)
+    entities = [n["normalized"] for n in normalized]
 
     # Step 2 — Negation and uncertainty detection
     affirmed, negated, uncertain = [], [], []
@@ -49,9 +54,16 @@ def analyze(request: ClinicalNoteRequest):
 
     # Step 3 — RAG retrieval + reranking + LLM reasoning
     seen_codes = set()
+    seen_conditions = set()
     suggested_codes = []
 
     for query in affirmed + uncertain:
+        # Skip duplicate conditions
+        query_lower = query.lower().strip()
+        if query_lower in seen_conditions:
+            continue
+        seen_conditions.add(query_lower)
+
         # Vector retrieval
         candidates = retrieve_codes(
             query,

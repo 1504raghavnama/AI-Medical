@@ -60,7 +60,9 @@ GENERIC_WORDS = {
     'day', 'week', 'month', 'time', 'past', 'medical',
     'chest x-ray', 'x-ray', 'xray', 'chest x ray',
     'scan', 'mri', 'ct scan', 'ultrasound', 'ecg', 'ekg',
-    'lab', 'test', 'examination', 'exam', 'imaging'
+    'lab', 'test', 'examination', 'exam', 'imaging',
+    'medical history', 'pharmaceutical preparations', 
+    'medications', 'metformin', 'medication'
 }
 
 def extract_medical_entities(text):
