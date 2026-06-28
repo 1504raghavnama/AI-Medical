@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Model files - too large for GitHub
+models/*.pt
+models/*.model
+models/*.bin
+
+# Database
+*.db
+
+# Environment
+.env
