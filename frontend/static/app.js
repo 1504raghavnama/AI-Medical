@@ -70,8 +70,8 @@ function renderResults(data) {
                 ).join('')}
             </div>
             <div class="feedback-btns">
-                <button class="btn-accept" onclick="sendFeedback('${code.primary_code}', 'accept')">✓ Accept</button>
-                <button class="btn-reject" onclick="sendFeedback('${code.primary_code}', 'reject')">✗ Reject</button>
+                <button class="btn-accept" data-code="${code.primary_code}" onclick="sendFeedback('${code.primary_code}', 'accept', '${code.entity}')">✓ Accept</button>
+                <button class="btn-reject" data-code="${code.primary_code}" onclick="sendFeedback('${code.primary_code}', 'reject', '${code.entity}')">✗ Reject</button>
             </div>
         `;
         codesContainer.appendChild(card);
@@ -80,16 +80,29 @@ function renderResults(data) {
     resultsSection.classList.remove('hidden');
 }
 
-async function sendFeedback(code, action) {
+async function sendFeedback(code, action, entity) {
     const note = document.getElementById('clinical-note').value.trim();
-    await fetch('/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note, code, action })
-    });
-    const btn = event.target;
-    btn.textContent = action === 'accept' ? '✓ Accepted' : '✗ Rejected';
-    btn.disabled = true;
+    
+    try {
+        await fetch('/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note, code, action, entity })
+        });
+
+        // Disable BOTH buttons for this code after any feedback
+        const allButtons = document.querySelectorAll(`button[data-code="${code}"]`);
+        allButtons.forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+        });
+
+        // Show which action was taken
+        event.target.textContent = action === 'accept' ? '✓ Accepted' : '✗ Rejected';
+
+    } catch (err) {
+        console.error('Feedback error:', err);
+    }
 }
 
 function showError(msg) {

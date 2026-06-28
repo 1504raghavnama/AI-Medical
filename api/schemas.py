@@ -35,6 +35,7 @@ class CodeSuggestionResponse(BaseModel):
 
 class FeedbackRequest(BaseModel):
     note: str
+    entity: str = ""
     code: str
     action: str
     corrected_code: Optional[str] = None

@@ -7,7 +7,7 @@ from pipeline.llm import llm_rerank
 from pipeline.rules import validate_codes
 from pipeline.loader import get_models
 from api.schemas import ClinicalNoteRequest, CodeSuggestionResponse, FeedbackRequest
-from governance.audit import log_request
+from governance.audit import log_request, log_feedback, get_code_weight, get_feedback_stats
 from pipeline.phi import deidentify
 
 router = APIRouter()
@@ -71,7 +71,7 @@ def analyze(request: ClinicalNoteRequest):
             models["icd10_meta"],
             top_k=10
         )
-        reranked = rerank_candidates(candidates)
+        reranked = rerank_candidates(candidates, entity=query)
 
         # LLM reranking
         best = llm_rerank(query, reranked, clean_note)
@@ -123,8 +123,20 @@ def analyze(request: ClinicalNoteRequest):
 
 @router.post("/feedback")
 def feedback(request: FeedbackRequest):
+    log_feedback(
+        note=request.note,
+        entity=request.code,
+        code=request.code,
+        action=request.action,
+        corrected_code=request.corrected_code
+    )
     return {
         "status": "received",
         "code": request.code,
         "action": request.action
     }
+
+
+@router.get("/feedback/stats")
+def feedback_stats():
+    return get_feedback_stats()

@@ -1,6 +1,7 @@
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from governance.audit import get_code_weight
 
 # Load biomedical sentence transformer
 print("Loading PubMedBERT embeddings model...")
@@ -88,9 +89,14 @@ def code_specificity(code):
     return min(len(code.replace('.', '')) / 8.0, 1.0)
 
 
-def rerank_candidates(candidates, rag_weight=0.92, spec_weight=0.08):
+def rerank_candidates(candidates, entity="", rag_weight=0.85, spec_weight=0.08, feedback_weight=0.07):
     for c in candidates:
         if "combined_score" not in c:
+            weight = get_code_weight(entity, c["code"])
             c['combined_score'] = round(
-                rag_weight * c['score'] + spec_weight * code_specificity(c['code']), 4)
+                rag_weight * c['score'] +
+                spec_weight * code_specificity(c['code']) +
+                feedback_weight * min(weight, 2.0) / 2.0,
+                4
+            )
     return sorted(candidates, key=lambda x: x['combined_score'], reverse=True)
