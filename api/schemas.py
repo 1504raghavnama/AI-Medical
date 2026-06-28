@@ -25,6 +25,8 @@ class CodeSuggestion(BaseModel):
 
 class CodeSuggestionResponse(BaseModel):
     note: str
+    anonymized_note: str
+    phi_detected: List[str]
     total_suggestions: int
     suggested_codes: List[CodeSuggestion]
     negated_entities: List[str]

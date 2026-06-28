@@ -7,6 +7,7 @@ from pipeline.rules import validate_codes
 from pipeline.loader import get_models
 from api.schemas import ClinicalNoteRequest, CodeSuggestionResponse, FeedbackRequest
 from governance.audit import log_request
+from pipeline.phi import deidentify
 
 router = APIRouter()
 
@@ -27,13 +28,18 @@ def analyze(request: ClinicalNoteRequest):
     models = get_models()
     note = request.note
 
+    # Step 0 — PHI De-identification
+    phi_result = deidentify(note)
+    clean_note = phi_result["anonymized_text"]
+    phi_detected = phi_result["phi_detected"]
+
     # Step 1 — Extract medical entities using scispacy
-    entities = extract_medical_entities(note)
+    entities = extract_medical_entities(clean_note)
 
     # Step 2 — Negation and uncertainty detection
     affirmed, negated, uncertain = [], [], []
     for entity in entities:
-        status = detect_negation(note, entity)
+        status = detect_negation(clean_note, entity)
         if status == "negated":
             negated.append(entity)
         elif status == "uncertain":
@@ -56,7 +62,7 @@ def analyze(request: ClinicalNoteRequest):
         reranked = rerank_candidates(candidates)
 
         # LLM reranking
-        best = llm_rerank(query, reranked, note)
+        best = llm_rerank(query, reranked, clean_note)
 
         if not best or best["code"] in seen_codes:
             continue
@@ -94,6 +100,8 @@ def analyze(request: ClinicalNoteRequest):
 
     return {
         "note": note,
+        "anonymized_note": clean_note,
+        "phi_detected": phi_detected,
         "total_suggestions": len(suggested_codes),
         "suggested_codes": suggested_codes,
         "negated_entities": negated,

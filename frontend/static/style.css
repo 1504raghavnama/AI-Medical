@@ -239,3 +239,8 @@ footer {
     margin-bottom: 0.75rem;
     border-radius: 0 4px 4px 0;
 }
+
+.phi-detected {
+    color: #6a1b9a;
+    font-weight: 500;
+}

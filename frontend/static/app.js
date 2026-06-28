@@ -37,6 +37,9 @@ function renderResults(data) {
     const codesContainer = document.getElementById('codes-container');
 
     let statusHtml = `<strong>${data.total_suggestions} code(s) suggested</strong>`;
+    if (data.phi_detected && data.phi_detected.length > 0) {
+        statusHtml += ` &nbsp;|&nbsp; <span class="phi-detected">🔒 PHI Removed: ${data.phi_detected.join(', ')}</span>`;
+    }
     if (data.negated_entities.length > 0) {
         statusHtml += ` &nbsp;|&nbsp; <span class="negated">Negated (not coded): ${data.negated_entities.join(', ')}</span>`;
     }
