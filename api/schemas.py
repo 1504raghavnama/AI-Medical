@@ -39,3 +39,18 @@ class FeedbackRequest(BaseModel):
     code: str
     action: str
     corrected_code: Optional[str] = None
+
+class NCCIWarning(BaseModel):
+    rule: str
+    message: str
+    severity: str
+
+class CodeSuggestionResponse(BaseModel):
+    note: str
+    anonymized_note: str
+    phi_detected: List[str]
+    total_suggestions: int
+    suggested_codes: List[CodeSuggestion]
+    negated_entities: List[str]
+    uncertain_entities: List[str]
+    ncci_warnings: List[NCCIWarning]

@@ -10,6 +10,7 @@ from api.schemas import ClinicalNoteRequest, CodeSuggestionResponse, FeedbackReq
 from governance.audit import log_request, log_feedback, get_code_weight, get_feedback_stats
 from pipeline.phi import deidentify
 from api.fhir_parser import parse_fhir_bundle, parse_hl7_message, create_sample_fhir_bundle, create_sample_hl7
+from pipeline.ncci import run_ncci_validation
 
 router = APIRouter()
 
@@ -57,6 +58,14 @@ def analyze(request: ClinicalNoteRequest):
     seen_codes = set()
     seen_conditions = set()
     suggested_codes = []
+
+    # Step 4 — Rule validation
+    suggested_codes = validate_codes(suggested_codes)
+
+    # Step 4b — NCCI validation
+    ncci_result = run_ncci_validation(suggested_codes)
+    suggested_codes = ncci_result["validated_codes"]
+    ncci_warnings = ncci_result["ncci_warnings"]
 
     for query in affirmed + uncertain:
         # Skip duplicate conditions
@@ -118,7 +127,8 @@ def analyze(request: ClinicalNoteRequest):
         "total_suggestions": len(suggested_codes),
         "suggested_codes": suggested_codes,
         "negated_entities": negated,
-        "uncertain_entities": uncertain
+        "uncertain_entities": uncertain,
+        "ncci_warnings": ncci_warnings
     }
 
 

@@ -46,6 +46,12 @@ function renderResults(data) {
     if (data.uncertain_entities.length > 0) {
         statusHtml += ` &nbsp;|&nbsp; <span class="uncertain">Uncertain: ${data.uncertain_entities.join(', ')}</span>`;
     }
+    if (data.ncci_warnings && data.ncci_warnings.length > 0) {
+        data.ncci_warnings.forEach(w => {
+            const color = w.severity === 'error' ? '#c62828' : w.severity === 'warning' ? '#e65100' : '#1565c0';
+            statusHtml += `<br><span style="color:${color};font-size:0.85rem;">⚠ NCCI: ${w.message}</span>`;
+        });
+    }
     statusBar.innerHTML = statusHtml;
 
     codesContainer.innerHTML = '';
