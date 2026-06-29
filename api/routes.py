@@ -189,3 +189,30 @@ def sample_fhir():
 def sample_hl7():
     """Returns a sample HL7 message for testing."""
     return {"message": create_sample_hl7()}
+
+@router.get("/validate-code/{code}")
+def validate_code(code: str):
+    models = get_models()
+    code_upper = code.upper().strip()
+    
+    # Search in ICD-10
+    for item in models["icd10_meta"]:
+        if item["code"] == code_upper:
+            return {
+                "valid": True,
+                "code": code_upper,
+                "description": item["description"],
+                "source": "ICD-10"
+            }
+    
+    # Search in HCPCS
+    for item in models["hcpcs_meta"]:
+        if item["code"] == code_upper:
+            return {
+                "valid": True,
+                "code": code_upper,
+                "description": item["description"],
+                "source": "HCPCS"
+            }
+    
+    return {"valid": False, "code": code_upper, "description": ""}
