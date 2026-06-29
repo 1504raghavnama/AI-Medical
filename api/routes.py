@@ -82,12 +82,26 @@ def analyze(request: ClinicalNoteRequest):
             continue
 
         seen_codes.add(best["code"])
+        
+        # Fix: Force uncertain status when entity comes from past medical history context
+        final_status = best.get("llm_status", "uncertain" if query in uncertain else "affirmed")
+        if final_status == "affirmed":
+            note_lower = clean_note.lower()
+            history_triggers = ["past medical history", "history of", "past history", "pmh:"]
+            for trigger in history_triggers:
+                trigger_pos = note_lower.find(trigger)
+                if trigger_pos != -1:
+                    context_after = note_lower[trigger_pos:trigger_pos + 120]
+                    if query.lower() in context_after:
+                        final_status = "uncertain"
+                        break
+
         suggested_codes.append({
             "entity": query,
             "primary_code": best["code"],
             "description": best["description"],
             "confidence": best["combined_score"],
-            "status": best.get("llm_status", "uncertain" if query in uncertain else "affirmed"),
+            "status": final_status,
             "llm_reason": best.get("llm_reason", ""),
             "alternatives": [
                 {
