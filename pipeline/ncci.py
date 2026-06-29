@@ -147,4 +147,46 @@ def check_symptom_redundancy(suggested_codes):
             if suggestion["primary_code"] in SYMPTOM_CODES:
                 warnings.append({
                     "code": suggestion["primary_code"],
-                    "rule":
+                    "rule": "SYMPTOM_REDUNDANCY",
+                    "message": f"{suggestion['primary_code']} ({suggestion['description']}) is redundant when a definitive diagnosis is coded.",
+                    "severity": "info"
+                })
+
+    return warnings
+
+
+def sort_by_priority(suggested_codes):
+    """Sort codes with primary diagnoses first."""
+    def priority_key(s):
+        code = s["primary_code"]
+        if code in PRIMARY_PRIORITY_CODES:
+            return 0
+        if code in SYMPTOM_CODES:
+            return 2
+        return 1
+
+    return sorted(suggested_codes, key=priority_key)
+
+
+def run_ncci_validation(suggested_codes):
+    """Run all NCCI rules and return validated codes with warnings."""
+    all_warnings = []
+
+    # Check manifestation codes
+    all_warnings.extend(check_manifestation_codes(suggested_codes))
+
+    # Check conflicting pairs
+    all_warnings.extend(check_conflicting_pairs(suggested_codes))
+
+    # Check symptom redundancy
+    all_warnings.extend(check_symptom_redundancy(suggested_codes))
+
+    # Sort by priority
+    sorted_codes = sort_by_priority(suggested_codes)
+
+    return {
+        "validated_codes": sorted_codes,
+        "ncci_warnings": all_warnings,
+        "has_errors": any(w["severity"] == "error" for w in all_warnings),
+        "has_warnings": any(w["severity"] == "warning" for w in all_warnings)
+    }
