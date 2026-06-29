@@ -35,7 +35,7 @@ def analyze(request: ClinicalNoteRequest):
     phi_result = deidentify(note)
     clean_note = phi_result["anonymized_text"]
     phi_detected = phi_result["phi_detected"]
-    
+
     # Step 1 — Extract medical entities using scispacy
     entities = extract_medical_entities(clean_note)
 
@@ -59,22 +59,12 @@ def analyze(request: ClinicalNoteRequest):
     seen_conditions = set()
     suggested_codes = []
 
-    # Step 4 — Rule validation
-    suggested_codes = validate_codes(suggested_codes)
-
-    # Step 4b — NCCI validation
-    ncci_result = run_ncci_validation(suggested_codes)
-    suggested_codes = ncci_result["validated_codes"]
-    ncci_warnings = ncci_result["ncci_warnings"]
-
     for query in affirmed + uncertain:
-        # Skip duplicate conditions
         query_lower = query.lower().strip()
         if query_lower in seen_conditions:
             continue
         seen_conditions.add(query_lower)
 
-        # Vector retrieval
         candidates = retrieve_codes(
             query,
             models["icd10_embeddings"],
@@ -82,14 +72,11 @@ def analyze(request: ClinicalNoteRequest):
             top_k=10
         )
         reranked = rerank_candidates(candidates, entity=query)
-
-        # LLM reranking
         best = llm_rerank(query, reranked, clean_note)
 
         if not best or best["code"] in seen_codes:
             continue
 
-        # If LLM says negated, skip
         if best.get("llm_status") == "negated":
             negated.append(query)
             continue
@@ -116,6 +103,11 @@ def analyze(request: ClinicalNoteRequest):
 
     # Step 4 — Rule validation
     suggested_codes = validate_codes(suggested_codes)
+
+    # Step 4b — NCCI validation (AFTER codes are collected)
+    ncci_result = run_ncci_validation(suggested_codes)
+    suggested_codes = ncci_result["validated_codes"]
+    ncci_warnings = ncci_result["ncci_warnings"]
 
     # Step 5 — Audit log
     log_request(note, suggested_codes)

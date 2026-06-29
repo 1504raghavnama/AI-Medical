@@ -62,7 +62,9 @@ GENERIC_WORDS = {
     'scan', 'mri', 'ct scan', 'ultrasound', 'ecg', 'ekg',
     'lab', 'test', 'examination', 'exam', 'imaging',
     'medical history', 'pharmaceutical preparations', 
-    'medications', 'metformin', 'medication'
+    'medications', 'metformin', 'medication',
+    'unspecified', 'specified', 'acute', 'chronic', 'bilateral',
+    'current', 'initial', 'subsequent', 'sequela'
 }
 
 def extract_medical_entities(text):

@@ -125,11 +125,16 @@ def check_conflicting_pairs(suggested_codes):
     codes = set(s["primary_code"] for s in suggested_codes)
 
     for pair in CONFLICTING_PAIRS:
-        if pair[0] in codes and pair[1] in codes:
+        code1_match = any(c.startswith(pair[0]) for c in codes)
+        code2_match = any(c.startswith(pair[1]) for c in codes)
+        
+        if code1_match and code2_match:
+            actual1 = next(c for c in codes if c.startswith(pair[0]))
+            actual2 = next(c for c in codes if c.startswith(pair[1]))
             warnings.append({
-                "codes": list(pair),
+                "codes": [actual1, actual2],
                 "rule": "CONFLICTING_PAIR",
-                "message": f"Codes {pair[0]} and {pair[1]} cannot be billed together. Use the more specific code.",
+                "message": f"Codes {actual1} and {actual2} cannot be billed together. Use the more specific code.",
                 "severity": "error"
             })
 
@@ -139,7 +144,10 @@ def check_conflicting_pairs(suggested_codes):
 def check_symptom_redundancy(suggested_codes):
     """Remove symptom codes when definitive diagnosis exists."""
     codes = set(s["primary_code"] for s in suggested_codes)
-    has_definitive = any(c in DEFINITIVE_DIAGNOSES for c in codes)
+    has_definitive = any(
+        any(c.startswith(d) for c in codes)
+        for d in DEFINITIVE_DIAGNOSES
+    )
     warnings = []
 
     if has_definitive:
